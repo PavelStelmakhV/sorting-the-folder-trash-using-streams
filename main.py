@@ -23,7 +23,7 @@ def get_arguments() -> tuple[Path, Path]:
     """
     parser = argparse.ArgumentParser(description='Sorting folder')
     parser.add_argument('--source', '-s', help='Source folder', required=True)
-    parser.add_argument('--output', '-o', help='Output folder', default='sorted_trash')
+    parser.add_argument('--output', '-o', help='Output folder (default="sorted_trash")', default='sorted_trash')
     args = vars(parser.parse_args())
 
     base_folder = Path(args.get('source'))
