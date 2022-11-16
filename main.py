@@ -2,12 +2,21 @@ import argparse
 import logging
 from pathlib import Path
 from shutil import move
-from threading import Thread, Event
+from threading import Thread
 from queue import Queue
-from time import sleep
 
 
-def get_arguments() -> bool:
+def del_empty_folders(folder: Path) -> bool:
+    for el in folder.iterdir():
+        if el.is_dir():
+            if del_empty_folders(el):
+                el.rmdir()
+        else:
+            return False
+    return True
+
+
+def get_arguments() -> tuple[Path, Path]:
     """
     --source [-s] folder
     --output [-o]
@@ -17,25 +26,22 @@ def get_arguments() -> bool:
     parser.add_argument('--output', '-o', help='Output folder', default='sorted_trash')
     args = vars(parser.parse_args())
 
-    global base_folder
     base_folder = Path(args.get('source'))
     if not base_folder.exists():
         logging.error(f"Don't exist folder {base_folder}")
-        return False
+        quit()
 
-    global output_folder
     output_folder = Path(args.get('output'))
     if not make_folder(output_folder):
-        return False
+        quit()
 
-    return True
+    return base_folder, output_folder
 
 
 def grabs_files(path: Path, files_queue: Queue) -> None:
     # logging.info(f'grabs_files: {path}')
     for file in path.iterdir():
         if file.is_file():
-            logging.info(f'     - {file}')
             files_queue.put(file)
 
 
@@ -56,7 +62,7 @@ def make_folder(folder: Path) -> bool:
     return True
 
 
-def move_file(file: Path) -> None:
+def move_file(file: Path, output_folder: Path) -> None:
     # logging.info(f'moving_files: {file}')
     ext = file.suffix
     new_path = output_folder / ext
@@ -65,13 +71,12 @@ def move_file(file: Path) -> None:
 
 
 def main():
-    folders_queue = Queue()
-    files_queue = Queue()
 
     logging.basicConfig(level=logging.DEBUG, format='%(threadName)s %(message)s')
 
-    if not get_arguments():
-        return False
+    folders_queue = Queue()
+    files_queue = Queue()
+    base_folder, output_folder = get_arguments()
 
     grabs_folder(base_folder, folders_queue)
     # --------------------------------------------
@@ -84,14 +89,13 @@ def main():
 
     th_move_file_list = []
     while not files_queue.empty():
-        th_move_file = Thread(target=move_file, args=(files_queue.get(), ))
+        th_move_file = Thread(target=move_file, args=(files_queue.get(), output_folder))
         th_move_file.start()
         th_move_file_list.append(th_move_file)
     [th.join() for th in th_move_file_list]
 
+    del_empty_folders(base_folder)
+
 
 if __name__ == '__main__':
-
-    base_folder = Path()
-    output_folder = Path()
     main()
